@@ -1,0 +1,92 @@
+#include <BMI160.h> //These libraries are important for the declarations of many functions in this code.
+
+#include <CurieIMU.h> // This enables the accelerometer.
+
+#include <LiquidCrystal.h> // This enables the LCD screen.
+
+#include <Countimer.h> // This enables the timer to be coded.
+
+#include <TimingLibrary.h>
+
+Countimer timer; // declaring it as 'timer'
+
+LiquidCrystal led(12, 11, 5, 4, 3, 2); // declaring the LCD as 'led' and declaring what numbers should be used on the screen.
+
+boolean stepEventsEnabeled = true; // setting it as true to initialise the counter.
+long lastStepCount = 0; // setting step count as 0 to start.
+boolean blinkState = false; // the LED on the chip state
+const int sensorPin = A0; // using the LOGICAL design, setting the sensor pin on Arduino slot A0
+const float baselineTemp = 20.0; // 20.0 is the base temp which and will collect a temperature around 20.
+
+double i = 0; //this is for the timer, i set as 0.
+double a = millis(); // from the library, declaring milliseconds as a.
+double c; // calling c ready to be used.
+
+void setup() {
+        led.begin(16, 2); // initialising the serial communication.
+        // intialising the sensor:
+        CurieIMU.begin();
+        // this will turn on the accelerometer.
+        CurieIMU.setStepDetectionMode(CURIE_IMU_STEP_MODE_NORMAL);
+        // the step detection will begin.
+        CurieIMU.setStepCountEnabled(true);
+
+        if (stepEventsEnabeled) {
+                // calling back the eventCallBack and setting as as
+                //step event handler.
+                CurieIMU.attachInterrupt(eventCallback);
+                CurieIMU.interrupts(CURIE_IMU_STEP); // turn on step detection
+
+                led.print("Welcome 2 GriBit"); // the next 3 lines are the welcoming message.
+                led.setCursor(0, 1);
+                led.print("Walk to Start!");
+        }
+}
+
+void loop() {
+        // periodically this step counter will update, not instantly only when active.
+        if (!stepEventsEnabeled) {
+                updateStepCount();
+        }
+        digitalWrite(13, blinkState);
+        blinkState = !blinkState; // when working the led on the Arduino will blink every second.
+        delay(1000);
+}
+
+static void updateStepCount() {
+        // getting the step count here.
+        int stepCount = CurieIMU.getStepCount();
+        int distance = 0; // this calculates the total distance travelled.
+        int distanceTenths = 0; // this works out with every tenths of a mile travelled.
+        int stride = 30; // CHANGE STRIDE HERE. Works out in inches.
+        int sensorVal = analogRead(sensorPin);
+        a = millis();
+        c = millis();
+
+        distance = lastStepCount * stride; // Again, measured in inches.
+        distanceTenths = (((distance) / 12) % 5280 / 100); // operator here for mathematical sums.
+
+        // this part is about the changes of the step count and how it will update and display on screen.
+        if (stepCount != lastStepCount) {
+                led.clear();
+                led.setCursor(0, 0);
+                led.print("SC:");
+                led.print(stepCount);
+                led.print(" | ");
+                i = (c - a) / 1000;
+                led.print(i);
+                led.setCursor(0, 1);
+                led.print("Dst:"); // This part is all about the display on the LCD
+                led.print(distance);
+                led.print(" Tmp:");
+                led.print(sensorVal);
+
+                // this saves the last step count so it enables comparison.
+                lastStepCount = stepCount;
+        }
+}
+
+static void eventCallback(void) {
+        if (CurieIMU.stepsDetected())
+                updateStepCount(); // the callback in static void and update.
+}
